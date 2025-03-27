@@ -2,7 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import connectMongoDB from './config/mongoDb.js';
 import { authRoutes } from './routes/authRoutes.js';
-//import { productRoute } from './routes/productRoute.js';
+import { productRoute } from './routes/productRoute.js';
 //import { orderRoutes } from './routes/orderRoutes.js';
 import cors from "cors";
 import path from "path";
@@ -48,7 +48,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
-//app.use('/api/products', productRoute);
+app.use('/api/products', productRoute);
 //app.use('/api/orders', orderRoutes);
 //app.use('/api/users', profileRoutes);
 

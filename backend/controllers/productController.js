@@ -64,11 +64,12 @@ export const addProduct = async (req, res) => {
         certified_by: req.body["traceability.certified_by"],
       },
     };
+    //console.log(farmer_id);
 
     // Validate required fields
     const requiredFields = ['name', 'description', 'category', 'price', 'available_quantity', 'farmer_id'];
     const missingFields = requiredFields.filter(field => !productData[field]);
-    
+
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
@@ -117,6 +118,7 @@ export const getProductbyId = async (req, res) => {
   try {
     console.log('Received farmer ID:', req.params);
     const { farmer_id } = req.params;
+    console.log('Received farmer ID:', farmer_id);
     const products = await Product.find({ farmer_id })
       .sort({ createdAt: -1 });
 
@@ -200,10 +202,10 @@ export const editProducts = async (req, res) => {
     }
 
     // Handle traceability updates if provided
-    if (req.body["traceability.farm_location"] || 
-        req.body["traceability.harvest_date"] || 
-        req.body["traceability.harvest_method"] || 
-        req.body["traceability.certified_by"]) {
+    if (req.body["traceability.farm_location"] ||
+      req.body["traceability.harvest_date"] ||
+      req.body["traceability.harvest_method"] ||
+      req.body["traceability.certified_by"]) {
       updates.traceability = {
         farm_location: req.body["traceability.farm_location"],
         harvest_date: req.body["traceability.harvest_date"],
@@ -242,7 +244,7 @@ export const editProducts = async (req, res) => {
 export const getSingleProduct = async (req, res) => {
   try {
     const { product_id } = req.params;
-    
+
     const product = await Product.findById(product_id);
 
     if (!product) {
@@ -279,7 +281,7 @@ export const deleteProducts = async (req, res) => {
         message: "Product ID is required for deletion",
       });
     }
-    
+
     const deletedProduct = await Product.findByIdAndDelete(product_id);
 
     if (!deletedProduct) {
@@ -307,10 +309,10 @@ export const getUniqueProducts = async (req, res) => {
   try {
     // Get all products
     const allProducts = await Product.find().sort({ createdAt: -1 });
-    
+
     // Create a map to store unique products by name
     const uniqueProductsMap = new Map();
-    
+
     // Process each product
     allProducts.forEach(product => {
       if (!uniqueProductsMap.has(product.name)) {
@@ -330,10 +332,10 @@ export const getUniqueProducts = async (req, res) => {
         existing.count += 1;
       }
     });
-    
+
     // Convert map to array
     const uniqueProducts = Array.from(uniqueProductsMap.values());
-    
+
     res.status(200).json({
       success: true,
       count: uniqueProducts.length,
@@ -352,19 +354,19 @@ export const getUniqueProducts = async (req, res) => {
 export const getFarmersForProduct = async (req, res) => {
   try {
     const { productName } = req.params;
-    
+
     // Find all product instances with this name from different farmers
-    const products = await Product.find({ 
-      name: { $regex: new RegExp('^' + productName + '$', 'i') } 
+    const products = await Product.find({
+      name: { $regex: new RegExp('^' + productName + '$', 'i') }
     });
-    
+
     if (!products.length) {
       return res.status(404).json({
         success: false,
         message: "No products found with this name",
       });
     }
-    
+
     // Get product details from the first match
     const productDetails = {
       name: products[0].name,
@@ -372,7 +374,7 @@ export const getFarmersForProduct = async (req, res) => {
       category: products[0].category,
       image_url: products[0].image_url,
     };
-    
+
     // Extract all farmers who sell this product with their details
     const farmers = products.map(product => ({
       farmer_id: product.farmer_id,
@@ -383,7 +385,7 @@ export const getFarmersForProduct = async (req, res) => {
       product_id: product._id,
       traceability: product.traceability
     }));
-    
+
     res.status(200).json({
       success: true,
       product: productDetails,

@@ -13,7 +13,6 @@ import {
 } from "../controllers/productController.js";
 
 const router = express.Router();
-
 router.post("/add-product", upload.single("image"), addProduct);
 router.get("/farmer/:farmer_id", getProductbyId);
 router.get("/consumer/allproducts", getAllProducts);

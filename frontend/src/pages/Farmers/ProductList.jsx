@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/Navbar';
 import { motion } from 'framer-motion';
-import { Plus, MoreVertical, Search, Edit, Trash2, Package } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function ProductList() {
@@ -11,7 +11,7 @@ function ProductList() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [userData, setUserData] = useState(null);
-  // Add a new state to track if this is a new user with no products
+  // Track if this is a new user with no products
   const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
@@ -20,8 +20,7 @@ function ProductList() {
     const storedUser = localStorage.getItem('user');
     console.log('Stored User:', storedUser);
     console.log('Auth Token:', token);
-    
-    // Try to parse user data if it exists
+
     let parsedUser = null;
     if (storedUser) {
       try {
@@ -31,34 +30,27 @@ function ProductList() {
         console.error('Failed to parse user data:', error);
       }
     }
-    
+
     // Handle authentication scenarios
     if (!token) {
       console.log('No authentication token found, redirecting to login');
       navigate('/login');
       return;
     }
-    
-    // If we have a token but invalid/missing user data
-    if (!parsedUser || !parsedUser.uid) {
-      // Here you could either redirect to login or try to fetch user profile
-      console.log('Valid token but invalid user data. Attempting to fetch user profile...');
-      
-      // Option 1: Just redirect to login
+
+    // For Mongoose, user id should be in _id
+    if (!parsedUser || !parsedUser.id) {
+      console.log('Valid token but invalid user data. Redirecting to login.');
       navigate('/login');
       return;
-      
-      // Option 2: Try to fetch user profile (uncomment to use)
-      // fetchUserProfile(token);
-      // return;
     }
-    
+
     // If we have valid user data, set it to state
     setUserData(parsedUser);
   }, [navigate]);
 
   useEffect(() => {
-    if (userData?.uid) {
+    if (userData?.id) {
       fetchFarmerProducts();
     }
   }, [userData]);
@@ -66,16 +58,17 @@ function ProductList() {
   const fetchFarmerProducts = async () => {
     try {
       setLoading(true);
-      console.log('Fetching products for farmer ID:', userData.uid);
-      
+      console.log('Fetching products for farmer ID:', userData.id);
+
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/products/farmer/${userData.uid}`, {
+      // API endpoint updated to use _id from Mongoose
+      const response = await fetch(`http://localhost:5000/api/products/farmer/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
         }
       });
-  
+
       // Handle 404 as a special case for new users
       if (response.status === 404) {
         console.log('No products found - likely a new user');
@@ -84,34 +77,30 @@ function ProductList() {
         setLoading(false);
         return;
       }
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || 'Failed to fetch products');
       }
-      
+
       console.log('API response:', data);
-      
-      // If products property exists in response, use it (even if empty array)
+
       if (data.products) {
         setProducts(data.products);
         console.log(`Loaded ${data.products.length} products`);
-        
-        // If the user has no products, mark them as a new user
+
         if (data.products.length === 0) {
           setIsNewUser(true);
         }
       } else {
-        // Handle unexpected response format
         console.warn('Unexpected API response format:', data);
         setProducts([]);
         setIsNewUser(true);
       }
-      
+
     } catch (error) {
       console.error('Error fetching products:', error);
-      // Don't set error for new users with no products
       if (error.message.includes('Not Found') || error.message.includes('404')) {
         setProducts([]);
         setIsNewUser(true);
@@ -133,7 +122,6 @@ function ProductList() {
   const handleDelete = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        // Add missing token authorization
         const token = localStorage.getItem('token');
         console.log('Deleting product with ID:', productId);
         const response = await fetch(`http://localhost:5000/api/products/delete/${productId}`, {
@@ -143,12 +131,11 @@ function ProductList() {
             'Accept': 'application/json'
           }
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to delete product');
         }
-        
-        // Refresh the product list after deletion
+
         fetchFarmerProducts();
       } catch (error) {
         console.error('Error deleting product:', error);
@@ -172,7 +159,6 @@ function ProductList() {
     );
   }
 
-  // Error state - don't show for new users
   if (error && !isNewUser) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#0c1816] to-[#0b1f1a]">
@@ -188,7 +174,7 @@ function ProductList() {
     );
   }
 
-  // New user state - redirect to add product
+  // New user: redirect to add product
   if (isNewUser || products.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#0c1816] to-[#0b1f1a]">
@@ -225,7 +211,6 @@ function ProductList() {
               </motion.button>
             </motion.div>
 
-            {/* Helpful tips section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -262,20 +247,17 @@ function ProductList() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0c1816] to-[#0b1f1a]">
       <Navbar />
-      
-      {/* Main Content */}
       <div className="pt-24 px-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="mb-8">
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl font-bold text-white mb-2"
             >
               Manage Products
             </motion.h1>
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -284,14 +266,13 @@ function ProductList() {
               Add, edit, and manage your farm products for the marketplace
             </motion.p>
           </div>
-
-          {/* Search and Add Product Bar */}
           <div className="flex justify-between items-center mb-6 gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search products..."
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-[#2d4f47] text-white pl-10 pr-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500 transition-colors"
               />
             </div>
@@ -305,8 +286,6 @@ function ProductList() {
               <span>Add Product</span>
             </motion.button>
           </div>
-
-          {/* Products Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -330,7 +309,7 @@ function ProductList() {
                 <tbody>
                   {filteredProducts.map((product) => (
                     <tr
-                      key={product._id}
+                      key={product.id}
                       className="border-b border-green-200/20 dark:border-teal-800/20 hover:bg-white/5 transition-colors"
                     >
                       <td className="py-4 px-4">
@@ -372,7 +351,7 @@ function ProductList() {
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => navigate(`/farmer/update/${product._id}`)}
+                            onClick={() => navigate(`/farmer/update/${product.id}`)}
                             className="p-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
                             title="Edit Product"
                           >
@@ -381,7 +360,7 @@ function ProductList() {
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => handleDelete(product._id)}
+                            onClick={() => handleDelete(product.id)}
                             className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                             title="Delete Product"
                           >

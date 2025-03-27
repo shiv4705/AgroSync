@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import Navbar from '../../components/Navbar';
+import Navbar from "../../components/Navbar";
 import {
   Package,
   Calendar,
@@ -17,9 +17,9 @@ function AddProduct() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [farmer, setFarmer] = useState({
-    id: '',
-    mobile: '',
-    location: ''
+    id: "",
+    mobile: "",
+    location: "",
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -40,24 +40,26 @@ function AddProduct() {
   });
 
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || !userData.uid) {
-      alert('Please login first');
-      navigate('/login');
+    const userData = JSON.parse(localStorage.getItem("user"));
+    // For Mongoose, the user id is usually stored as _id
+    console.log("User data:", userData.id);
+    if (!userData || !userData.id) {
+      alert("Please login first");
+      navigate("/login");
       return;
     }
-    
+
     setFarmer({
-      id: userData.uid, // Use uid instead of id if that's what your auth system uses
-      mobile: userData.mobile || '',
-      location: userData.location || ''
+      id: userData.id, // use _id for mongoose
+      mobile: userData.mobile || "",
+      location: userData.location || "",
     });
-  
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      farmer_id: userData.uid, // Use uid instead of id
-      farmer_mobile: userData.mobile || '',
-      farmer_location: userData.location || ''
+      farmer_id: userData.id, // use _id
+      farmer_mobile: userData.mobile || "",
+      farmer_location: userData.location || "",
     }));
   }, [navigate]);
 
@@ -106,8 +108,8 @@ function AddProduct() {
       const imageUrl = URL.createObjectURL(file);
       setFormData((prev) => ({
         ...prev,
-        image: file, // Store the actual file
-        image_url: imageUrl, // Store the preview URL
+        image: file, // store the actual file
+        image_url: imageUrl, // store the preview URL
       }));
     }
   };
@@ -115,77 +117,78 @@ function AddProduct() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Get authentication token
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (!token) {
-        alert('You must be logged in to add a product');
-        navigate('/login');
+        alert("You must be logged in to add a product");
+        navigate("/login");
         return;
       }
-      
+
       // Get user information
-      const userData = JSON.parse(localStorage.getItem('user'));
-      
+      const userData = JSON.parse(localStorage.getItem("user"));
+
       // Create a FormData object to handle file upload
       const submitFormData = new FormData();
-      
+
       // Append basic product information
-      submitFormData.append('name', formData.name);
-      submitFormData.append('description', formData.description);
-      submitFormData.append('category', formData.category);
-      submitFormData.append('price', formData.price);
-      submitFormData.append('available_quantity', formData.available_quantity);
-      
-      // Append farmer information
-      submitFormData.append('farmer_id', userData?.uid || formData.farmer_id);
-      submitFormData.append('farmer_mobile', userData?.mobile || formData.farmer_mobile);
-      submitFormData.append('farmer_location', userData?.location || formData.farmer_location);
-      
+      submitFormData.append("name", formData.name);
+      submitFormData.append("description", formData.description);
+      submitFormData.append("category", formData.category);
+      submitFormData.append("price", formData.price);
+      submitFormData.append("available_quantity", formData.available_quantity);
+
+      // Append farmer information using _id
+      submitFormData.append("farmer_id", userData?.id || formData.farmer_id);
+      submitFormData.append("farmer_mobile", userData?.mobile || formData.farmer_mobile);
+      submitFormData.append("farmer_location", userData?.location || formData.farmer_location);
+
       // Convert traceability object to JSON string
-      submitFormData.append('traceability', JSON.stringify({
-        farm_location: formData.traceability.farm_location,
-        harvest_date: formData.traceability.harvest_date,
-        harvest_method: formData.traceability.harvest_method,
-        certified_by: formData.traceability.certified_by
-      }));
-      
+      submitFormData.append(
+        "traceability",
+        JSON.stringify({
+          farm_location: formData.traceability.farm_location,
+          harvest_date: formData.traceability.harvest_date,
+          harvest_method: formData.traceability.harvest_method,
+          certified_by: formData.traceability.certified_by,
+        })
+      );
+
       // Append image if available
       if (formData.image) {
-        submitFormData.append('image', formData.image);
+        submitFormData.append("image", formData.image);
       }
-      
-      console.log('Submitting product data...');
-      
+
+      console.log("Submitting product data...");
+
       // Make API call to add the product
-      const response = await fetch('http://localhost:5000/api/products/add-product', {
-        method: 'POST',
+      const response = await fetch("http://localhost:5000/api/products/add-product", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: submitFormData
+        body: submitFormData,
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add product');
+        throw new Error(errorData.message || "Failed to add product");
       }
-      
+
       const data = await response.json();
-      console.log('Product added successfully:', data);
-      
-      alert('Product added successfully!');
-      navigate('/farmer/products');
+      console.log("Product added successfully:", data);
+
+      alert("Product added successfully!");
+      navigate("/farmer/products");
     } catch (error) {
-      console.error('Error adding product:', error);
+      console.error("Error adding product:", error);
       alert(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0c1816] to-[#0b1f1a]">
@@ -393,8 +396,7 @@ function AddProduct() {
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <Upload className="w-8 h-8 mb-4 text-green-600 dark:text-teal-400" />
                     <p className="mb-2 text-sm">
-                      <span className="font-semibold">Click to upload</span> or drag
-                      and drop
+                      <span className="font-semibold">Click to upload</span> or drag and drop
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       PNG, JPG or JPEG (MAX. 800x400px)
@@ -426,7 +428,7 @@ function AddProduct() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="button"
-                onClick={() => navigate('/farmer/products')}
+                onClick={() => navigate("/farmer/products")}
                 className="bg-red-500 backdrop-blur-sm text-white dark:text-white px-8 py-3 rounded-lg flex items-center space-x-2 hover:bg-red-600/80 border border-green-200/20 dark:border-teal-800/20 transition-colors"
               >
                 <span>Cancel</span>
@@ -436,9 +438,8 @@ function AddProduct() {
                 whileTap={{ scale: 0.98 }}
                 disabled={isSubmitting}
                 type="submit"
-                className={`bg-green-600 dark:bg-teal-500 text-white px-8 py-3 rounded-lg flex items-center space-x-2 hover:bg-green-700 dark:hover:bg-teal-600 transition-colors ${
-                  isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className={`bg-green-600 dark:bg-teal-500 text-white px-8 py-3 rounded-lg flex items-center space-x-2 hover:bg-green-700 dark:hover:bg-teal-600 transition-colors ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
               >
                 <Package className="w-5 h-5" />
                 <span>{isSubmitting ? "Adding Product..." : "Add Product"}</span>
