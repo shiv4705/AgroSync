@@ -241,7 +241,7 @@ function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent">
-              How KrushiSetu Works
+              How AgroSync Works
             </h2>
             <motion.div
               initial={{ width: "0%" }}
