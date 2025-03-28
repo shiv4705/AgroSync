@@ -5,33 +5,12 @@ import { authRoutes } from './routes/authRoutes.js';
 import { productRoute } from './routes/productRoute.js';
 //import { orderRoutes } from './routes/orderRoutes.js';
 import cors from "cors";
-import path from "path";
-//import { fileURLToPath } from "url";
-//import fs from "fs";
-//import { profileRoutes } from './routes/profileRoutes.js';
+
+// import { profileRoutes } from './routes/profileRoutes.js';
 
 dotenv.config();
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
 
-// Create required directories
-// const createRequiredDirectories = () => {
-//   const directories = [
-//     path.join(__dirname, '../uploads'),
-//     path.join(__dirname, '../uploads/products')
-//   ];
-
-//   directories.forEach(dir => {
-//     if (!fs.existsSync(dir)) {
-//       fs.mkdirSync(dir, { recursive: true });
-//       console.log(`Created directory: ${dir}`);
-//     }
-//   });
-// };
-
-// Create directories before starting the server
-//createRequiredDirectories();
 
 const app = express();
 
@@ -50,7 +29,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoute);
 //app.use('/api/orders', orderRoutes);
-//app.use('/api/users', profileRoutes);
+// app.use('/api/users', profileRoutes);
 
 // Connect MongoDB
 connectMongoDB();

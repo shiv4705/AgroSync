@@ -1,115 +1,127 @@
 import Product from "../models/Product.js";
-import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
+import mongoose from "mongoose";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Configure multer for image upload
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, "../../uploads/products");
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Create a unique filename with timestamp and original extension
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-export const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (extname && mimetype) {
-      return cb(null, true);
-    } else {
-      cb(new Error("Only image files (jpeg, jpg, png) are allowed!"));
-    }
-  }
-});
 
 // Add new product
 export const addProduct = async (req, res) => {
   try {
-    console.log('Received request body:', req.body);
-    console.log('Received file:', req.file);
+    console.log("Creating product, received body:", req.body);
+    console.log("File received:", req.file);
 
-    // Get the image URL if an image was uploaded
-    const imageUrl = req.file ? `/uploads/products/${req.file.filename}` : "";
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Product image is required",
+      });
+    }
 
-    // Create product data object
-    const productData = {
-      name: req.body.name,
-      description: req.body.description,
-      category: req.body.category,
-      price: Number(req.body.price),
-      available_quantity: Number(req.body.available_quantity),
-      image_url: imageUrl,
-      farmer_id: req.body.farmer_id,
-      farmer_mobile: req.body.farmer_mobile,
-      farmer_location: req.body.farmer_location,
-      traceability: {
-        farm_location: req.body["traceability.farm_location"],
-        harvest_date: req.body["traceability.harvest_date"],
-        harvest_method: req.body["traceability.harvest_method"],
-        certified_by: req.body["traceability.certified_by"],
-      },
-    };
-    //console.log(farmer_id);
+    const {
+      name,
+      category,
+      price,
+      available_quantity,
+      description,
+      farmer_id,
+      unit, // Added unit field
+      discount, // Add discount field
+    } = req.body;
+
+    const traceability = JSON.parse(req.body.traceability);
 
     // Validate required fields
-    const requiredFields = ['name', 'description', 'category', 'price', 'available_quantity', 'farmer_id'];
-    const missingFields = requiredFields.filter(field => !productData[field]);
-
-    if (missingFields.length > 0) {
+    if (!name || !category || !price || !description || !farmer_id) {
       return res.status(400).json({
         success: false,
-        message: `Missing required fields: ${missingFields.join(', ')}`,
+        message: "Missing required product information",
       });
     }
 
-    // Validate numeric fields
-    if (isNaN(productData.price) || productData.price <= 0) {
+    // Validate available_quantity is provided and is a number
+    if (!available_quantity || isNaN(Number(available_quantity))) {
       return res.status(400).json({
         success: false,
-        message: "Price must be a positive number",
+        message: "Available quantity is required and must be a number",
       });
     }
 
-    if (isNaN(productData.available_quantity) || productData.available_quantity < 0) {
+    // Validate discount is between 0-100
+    const discountValue = parseFloat(discount) || 0;
+    if (discountValue < 0 || discountValue > 100) {
       return res.status(400).json({
         success: false,
-        message: "Available quantity must be a non-negative number",
+        message: "Discount must be between 0 and 100 percent",
       });
     }
 
-    // Create and save the product
-    const product = new Product(productData);
-    const savedProduct = await product.save();
+    // Extract traceability fields from the FormData
+    Object.keys(req.body).forEach((key) => {
+      if (key.startsWith("traceability[")) {
+        const fieldName = key.replace("traceability[", "").replace("]", "");
+        traceability[fieldName] = req.body[key];
+        console.log("Extracted traceability field:", fieldName, req.body[key]);
+      }
+    });
 
-    console.log('Product saved successfully:', savedProduct);
+    console.log("Extracted traceability data:", traceability);
 
-    // Send success response
+    // Create image URL for frontend access
+    const imageUrl = `/api/products/image/${req.file.filename}`;
+    console.log("file id" + req.file.id);
+    console.log("image url" + imageUrl);
+
+    // Create new product
+    const product = await Product.create({
+      name,
+      category,
+      price: Number(price),
+      discount: discountValue,
+      available_quantity: Number(available_quantity),
+      description,
+      unit: unit || "kg", // Use the unit field correctly
+      image_id: req.file.id,
+      image_url: imageUrl,
+      farmer_id,
+      traceability,
+    });
+
     res.status(201).json({
       success: true,
-      message: "Product added successfully",
-      product: savedProduct,
+      message: "Product created successfully",
+      data: product,
     });
   } catch (error) {
-    console.error("Error in addProduct:", error);
-    res.status(400).json({
+    console.error("Error creating product:", error);
+    res.status(500).json({
       success: false,
-      message: error.message || "Failed to add product",
+      message: "Failed to create product",
+      error: error.message,
     });
+  }
+};
+
+export const getProductImage = async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const bucket = new mongoose.mongo.GridFSBucket(db, {
+      bucketName: "uploads",
+    });
+
+    const { filename } = req.params;
+    const file = await db.collection("uploads.files").findOne({ filename });
+
+    if (!file) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    // Set the correct content type
+    res.set("Content-Type", file.contentType);
+
+    // Stream the file to the response
+    bucket.openDownloadStreamByName(filename).pipe(res);
+  } catch (error) {
+    console.error("Error fetching image:", error);
+    res.status(500).json({ message: "Failed to fetch image" });
   }
 };
 

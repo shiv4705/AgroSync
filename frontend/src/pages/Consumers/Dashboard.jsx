@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { 
   FiUser, 
   FiShoppingCart, 
@@ -14,15 +16,99 @@ import {
   FiX,
   FiTrendingUp,
   FiPackage,
-  FiCalendar
+  FiCalendar,
+  FiClock,
+  FiMapPin,
+  FiBox,
+  FiChevronDown,
+  FiSettings
 } from "react-icons/fi";
 
 const ConsumerDashboard = () => {
   const location = useLocation();
-  const [currentUser] = useState("Dishang18");
+  const navigate = useNavigate();
+  
+  // Dynamic username fetching
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+
   const [currentDateTime] = useState("2025-03-21 07:45:16");
   const [cartOpen, setCartOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
+  // Set axios configuration
+  useEffect(() => {
+    axios.defaults.baseURL = 'http://localhost:5000';
+    // Add auth token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+  }, []);
+  
+  // Fetch username when component mounts
+  useEffect(() => {
+    const fetchUsername = async () => {
+      try {
+        setLoading(true);
+        // Use correct endpoint path
+        const response = await axios.get('/api/auth/me');
+        console.log("Response:", response.data.user.email);
+        if (response.data && response.data.user) {
+          setUsername(response.data.user.name || response.data.user.email || "User");
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching username:", err);
+        // Fallback for development
+        setUsername("Guest");
+        setLoading(false);
+      }
+    };
+    
+    // Comment this out temporarily to prevent API calls during testing
+   fetchUsername();
+    
+    // For development, just use a placeholder username
+  }, []);
+  
+  const [stats] = useState({
+    totalOrders: 24,
+    totalSpent: 487.50,
+    wishlistItems: 12
+  });
+  
+  const [recentOrders] = useState([
+    {
+      id: "ORD789",
+      product: "Organic Strawberries",
+      farm: "Green Acres Farm",
+      quantity: "1 kg",
+      amount: "₹499",
+      status: "delivered",
+      date: "2025-03-18",
+    },
+    {
+      id: "ORD790",
+      product: "Free-Range Eggs (Dozen)",
+      farm: "Heritage Family Farms",
+      quantity: "1 dozen",
+      amount: "₹350",
+      status: "processing",
+      date: "2025-03-20",
+    },
+    {
+      id: "ORD791",
+      product: "Raw Honey (16oz)",
+      farm: "Bee Haven Apiaries",
+      quantity: "1 jar",
+      amount: "₹600",
+      status: "pending",
+      date: "2025-03-21",
+    },
+  ]);
+  
   const [cart, setCart] = useState([
     {
       id: 1,
@@ -82,22 +168,61 @@ const ConsumerDashboard = () => {
   const toggleCart = () => {
     setCartOpen(!cartOpen);
     if (notificationsOpen) setNotificationsOpen(false);
+    if (profileOpen) setProfileOpen(false);
   };
   
   const toggleNotifications = () => {
     setNotificationsOpen(!notificationsOpen);
     if (cartOpen) setCartOpen(false);
+    if (profileOpen) setProfileOpen(false);
+  };
+  
+  const toggleProfile = () => {
+    setProfileOpen(!profileOpen);
+    if (cartOpen) setCartOpen(false);
+    if (notificationsOpen) setNotificationsOpen(false);
+  };
+  
+  const markAllNotificationsAsRead = () => {
+    // Placeholder function - in a real app this would make an API call
+    console.log("Marking all notifications as read");
+  };
+  
+  // Fixed logout function that doesn't use async/await to prevent navigate issues
+  const handleLogout = () => {
+    // First remove auth token
+    delete axios.defaults.headers.common['Authorization'];
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    
+    console.log("Logging out...");
+    
+    // Then make the API call, but don't await it
+    axios.post('/api/auth/logout')
+      .then(() => {
+        console.log("Logout successful");
+      })
+      .catch(err => {
+        console.error("Error logging out:", err);
+      })
+      .finally(() => {
+        // Always navigate to login, even if the API call fails
+        navigate('/login');
+      });
   };
   
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (cartOpen || notificationsOpen) {
+      if (cartOpen || notificationsOpen || profileOpen) {
         if (!event.target.closest('.cart-dropdown') && 
             !event.target.closest('.cart-button') &&
             !event.target.closest('.notifications-dropdown') && 
-            !event.target.closest('.notifications-button')) {
+            !event.target.closest('.notifications-button') &&
+            !event.target.closest('.profile-dropdown') &&
+            !event.target.closest('.profile-button')) {
           setCartOpen(false);
           setNotificationsOpen(false);
+          setProfileOpen(false);
         }
       }
     };
@@ -106,10 +231,10 @@ const ConsumerDashboard = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [cartOpen, notificationsOpen]);
+  }, [cartOpen, notificationsOpen, profileOpen]);
 
   return (
-    <div className="min-h-screen bg-[#0A1F1C]">
+    <div className="min-h-screen bg-gradient-to-b from-[#0c1816] to-[#0b1f1a]">
       <header className="bg-[#0A1F1C] border-b border-[#1F3330] py-4 fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
@@ -119,8 +244,8 @@ const ConsumerDashboard = () => {
                   <span className="text-2xl font-bold text-[#0A1F1C]">K</span>
                 </div>
                 <div>
-                  <span className="text-2xl font-bold text-white">Krushi</span>
-                  <span className="text-2xl font-bold text-[#00FFD1]">Setu</span>
+                  <span className="text-2xl font-bold text-white">AgroSync</span>
+      
                 </div>
               </Link>
             </div>
@@ -128,7 +253,7 @@ const ConsumerDashboard = () => {
             <nav className="hidden md:flex items-center space-x-8">
               {[
                 { to: "/home", label: "Home" },
-                { to: "/marketplace", label: "Marketplace" },
+                { to: "/shop", label: "Marketplace" },
                 { to: "/verified-farmers", label: "Verified Farmers" },
                 { to: "/about", label: "About" }
               ].map((item) => (
@@ -167,21 +292,63 @@ const ConsumerDashboard = () => {
                 )}
               </button>
 
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00FFD1] to-[#00B396] text-[#0A1F1C] flex items-center justify-center shadow-lg">
-                  <span className="font-medium">{currentUser.substring(0, 2).toUpperCase()}</span>
+              <div 
+                className="flex items-center space-x-1 profile-button cursor-pointer"
+                onClick={toggleProfile}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00FFD1] to-[#00B396] text-[#0A1F1C] flex items-center justify-center shadow-lg">
+                    <span className="font-medium">{username.substring(0, 2).toUpperCase()}</span>
+                  </div>
+                  <div className="hidden md:flex items-center space-x-1">
+                    <span className="text-white font-medium">{username}</span>
+                    <FiChevronDown className={`h-4 w-4 text-[#00FFD1] transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+                  </div>
                 </div>
-                <span className="text-white font-medium hidden md:block">{currentUser}</span>
               </div>
             </div>
           </div>
         </div>
 
+        {profileOpen && (
+          <div className="absolute right-4 mt-2 w-48 bg-[#1F3330] rounded-lg shadow-xl z-50 profile-dropdown border border-[#2A4542] backdrop-blur-lg bg-opacity-95">
+            <div className="py-2">
+              <Link 
+                to="/consumer/profile" 
+                className="flex items-center px-4 py-3 text-white hover:bg-[#2A4542] transition-colors"
+              >
+                <FiUser className="h-5 w-5 mr-3 text-[#00FFD1]" />
+                My Profile
+              </Link>
+              <Link 
+                to="/consumer/settings" 
+                className="flex items-center px-4 py-3 text-white hover:bg-[#2A4542] transition-colors"
+              >
+                <FiSettings className="h-5 w-5 mr-3 text-[#00FFD1]" />
+                Settings
+              </Link>
+              <div className="border-t border-[#2A4542] my-1"></div>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center w-full text-left px-4 py-3 text-red-400 hover:bg-[#2A4542] transition-colors"
+              >
+                <FiLogOut className="h-5 w-5 mr-3" />
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+
         {notificationsOpen && (
           <div className="absolute right-4 mt-2 w-80 bg-[#1F3330] rounded-lg shadow-xl z-50 notifications-dropdown border border-[#2A4542] backdrop-blur-lg bg-opacity-95">
             <div className="p-4 border-b border-[#2A4542] flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white">Notifications</h3>
-              <span className="text-xs text-[#00FFD1] font-medium">Mark all as read</span>
+              <button 
+                onClick={markAllNotificationsAsRead}
+                className="text-xs text-[#00FFD1] font-medium cursor-pointer hover:text-[#00E6BC]"
+              >
+                Mark all as read
+              </button>
             </div>
             <div className="max-h-96 overflow-y-auto">
               {notifications.map(notification => (
@@ -268,150 +435,245 @@ const ConsumerDashboard = () => {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-20">
-        <div className="flex gap-8">
-          <aside className="w-64 flex-shrink-0">
-            <div className="bg-[#1F3330] rounded-lg shadow-lg sticky top-24">
-              <div className="p-6">
-                <h2 className="text-xl font-bold text-white mb-2">Dashboard</h2>
-                <p className="text-sm text-[#00FFD1] mb-6">{formattedDate}</p>
-                
-                <Link 
-                  to="shop" 
-                  className="w-full py-3 px-4 bg-gradient-to-r from-[#00FFD1] to-[#00B396] hover:from-[#00E6BC] hover:to-[#00A187] text-[#0A1F1C] text-center rounded-md font-medium flex items-center justify-center mb-6 transition-colors shadow-lg"
-                >
-                  <FiShoppingBag className="mr-2" />
-                  Shop Now
-                </Link>
-                
-                <nav className="space-y-2">
-                  {[
-                    { path: '/consumer', icon: FiHome, label: 'Overview' },
-                    { path: '/consumer/profile', icon: FiUser, label: 'Profile' },
-                    { path: '/consumer/orders', icon: FiPackage, label: 'Orders' },
-                    { path: '/consumer/wishlist', icon: FiHeart, label: 'Wishlist' },
-                    { path: '/consumer/total-spent', icon: FiTrendingUp, label: 'Analytics' },
-                  ].map(item => (
-                    <Link 
-                      key={item.path}
-                      to={item.path} 
-                      className={`flex items-center px-4 py-3 rounded-lg transition-all ${
-                        location.pathname === item.path 
-                          ? 'bg-gradient-to-r from-[#2A4542] to-[#1F3330] text-[#00FFD1] shadow-md' 
-                          : 'text-white hover:bg-[#2A4542] hover:shadow-md'
-                      }`}
-                    >
-                      <item.icon className="mr-3 h-5 w-5" />
-                      {item.label}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-              
-              <div className="p-6 border-t border-[#2A4542]">
-                <button className="flex items-center w-full px-4 py-3 text-red-400 hover:bg-[#2A4542] rounded-lg transition-all hover:shadow-md">
-                  <FiLogOut className="mr-3 h-5 w-5" />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </aside>
+      <div className="pt-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          {location.pathname === '/consumer' ? (
+            <>
+              {/* Header */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center mb-16"
+              >
+                <h1 className="font-serif text-4xl font-bold tracking-tighter text-green-900 dark:text-teal-50 mb-4">
+                  Consumer Dashboard
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                  Welcome back, {username}! Here's an overview of your purchases and favorite products.
+                </p>
+              </motion.div>
 
-          <div className="flex-1">
-            {location.pathname === '/consumer' ? (
-              <div className="space-y-8">
-                <div className="bg-[#1F3330] rounded-lg p-8 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h1 className="text-3xl font-bold text-white mb-2">Welcome back, {currentUser}!</h1>
-                      <p className="text-[#A3B3B0] text-lg">
-                        Explore fresh, local produce from farmers in your area
-                      </p>
+              {/* Quick Actions Row */}
+              <div className="mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate("/shop")}
+                    className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20 hover:border-green-300/30 dark:hover:border-teal-700/30 transition-colors text-left cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <FiShoppingBag className="w-5 h-5 text-green-600 dark:text-teal-400" />
+                      <span className="text-gray-600 dark:text-gray-300">Browse Marketplace</span>
                     </div>
-                    <div className="flex items-center space-x-8">
-                      <div className="text-center bg-[#2A4542] px-6 py-4 rounded-lg">
-                        <div className="text-[#00FFD1] text-3xl font-bold mb-1">24</div>
-                        <div className="text-[#A3B3B0] text-sm font-medium">Orders</div>
-                      </div>
-                      <div className="text-center bg-[#2A4542] px-6 py-4 rounded-lg">
-                        <div className="text-[#00FFD1] text-3xl font-bold mb-1">$487.50</div>
-                        <div className="text-[#A3B3B0] text-sm font-medium">Total Spent</div>
-                      </div>
+                    <p className="text-green-900 dark:text-teal-50 font-medium">
+                      Discover fresh local produce
+                    </p>
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate("/consumer/orders")}
+                    className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20 hover:border-green-300/30 dark:hover:border-teal-700/30 transition-colors text-left cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <FiPackage className="w-5 h-5 text-green-600 dark:text-teal-400" />
+                      <span className="text-gray-600 dark:text-gray-300">Track Orders</span>
                     </div>
-                  </div>
+                    <p className="text-green-900 dark:text-teal-50 font-medium">
+                      View and track your orders
+                    </p>
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate("/consumer/wishlist")}
+                    className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20 hover:border-green-300/30 dark:hover:border-teal-700/30 transition-colors text-left cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <FiHeart className="w-5 h-5 text-green-600 dark:text-teal-400" />
+                      <span className="text-gray-600 dark:text-gray-300">Wishlist</span>
+                    </div>
+                    <p className="text-green-900 dark:text-teal-50 font-medium">
+                      View saved products
+                    </p>
+                  </motion.button>
                 </div>
+              </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">Recommended Products</h2>
-                    <Link to="/marketplace" className="text-[#00FFD1] hover:text-[#00E6BC] font-medium flex items-center">
-                      View All
-                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
+              {/* Stats Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <FiPackage className="w-5 h-5 text-green-600 dark:text-teal-400" />
+                    <span className="text-gray-600 dark:text-gray-300">Total Orders</span>
                   </div>
+                  <p className="text-2xl font-bold text-green-900 dark:text-teal-50">
+                    {stats.totalOrders}
+                  </p>
+                </motion.div>
+                
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <FiDollarSign className="w-5 h-5 text-green-600 dark:text-teal-400" />
+                    <span className="text-gray-600 dark:text-gray-300">Total Spent</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-900 dark:text-teal-50">
+                    ${stats.totalSpent}
+                  </p>
+                </motion.div>
+                
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <FiHeart className="w-5 h-5 text-green-600 dark:text-teal-400" />
+                    <span className="text-gray-600 dark:text-gray-300">Wishlist Items</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-900 dark:text-teal-50">
+                    {stats.wishlistItems}
+                  </p>
+                </motion.div>
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {[
-                      {
-                        image: "https://images.unsplash.com/photo-1518635017498-87f514b751ba?w=400",
-                        name: "Organic Strawberries",
-                        farm: "Green Acres Farm",
-                        price: 4.99
-                      },
-                      {
-                        image: "https://images.unsplash.com/photo-1542223616-740d5dff7f56?w=400",
-                        name: "Free-Range Eggs (Dozen)",
-                        farm: "Heritage Family Farms",
-                        price: 5.50
-                      },
-                      {
-                        image: "https://images.unsplash.com/photo-1557844352-761f2565b576?w=400",
-                        name: "Seasonal Vegetables Basket",
-                        farm: "Sunset Valley Organics",
-                        price: 24.99
-                      },
-                      {
-                        image: "https://images.unsplash.com/photo-1558642891-54be180ea339?w=400",
-                        name: "Raw Honey (16oz)",
-                        farm: "Bee Haven Apiaries",
-                        price: 8.99
-                      }
-                    ].map((product, index) => (
-                      <div key={index} className="bg-[#1F3330] rounded-lg overflow-hidden group shadow-lg hover:shadow-xl transition-all">
-                        <div className="relative h-48 overflow-hidden">
-                          <img 
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0A1F1C] to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-300"></div>
-                        </div>
-                        <div className="p-4">
-                          <h4 className="font-medium text-white text-lg">{product.name}</h4>
-                          <p className="text-sm text-[#A3B3B0] mb-3 flex items-center">
-                            <FiUser className="w-4 h-4 mr-1" />
-                            {product.farm}
+              {/* Recent Orders */}
+              <div className="mb-8">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20"
+                >
+                  <h2 className="font-serif text-2xl font-bold tracking-tighter text-green-900 dark:text-teal-50 mb-6">
+                    Recent Orders
+                  </h2>
+                  <div className="space-y-4">
+                    {recentOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-green-200/10 dark:border-teal-800/10"
+                      >
+                        <div>
+                          <p className="font-medium text-green-900 dark:text-teal-50">
+                            {order.product}
                           </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[#00FFD1] font-bold text-lg">${product.price.toFixed(2)}</span>
-                            <button className="p-2 rounded-full bg-[#2A4542] text-[#00FFD1] hover:bg-[#00FFD1] hover:text-[#0A1F1C] transition-all transform hover:scale-105">
-                              <FiShoppingCart className="h-5 w-5" />
-                            </button>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            {order.farm} • {order.quantity}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-green-900 dark:text-teal-50">
+                            {order.amount}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm">
+                            <FiClock className="w-4 h-4" />
+                            <span className="text-gray-600 dark:text-gray-300">
+                              {order.date}
+                            </span>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                  <div className="mt-6 text-center">
+                    <button 
+                      onClick={() => navigate('/consumer/orders')}
+                      className="inline-flex items-center px-4 py-2 border border-green-200/20 dark:border-teal-800/20 rounded-md text-sm font-medium text-green-900 dark:text-teal-50 hover:bg-white/10 transition-colors"
+                    >
+                      View All Orders
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </button>
+                  </div>
+                </motion.div>
               </div>
-            ) : (
-              <Outlet />
-            )}
-          </div>
+              
+              {/* Nearby Farmers */}
+              <div className="mb-8">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20"
+                >
+                  <h2 className="font-serif text-2xl font-bold tracking-tighter text-green-900 dark:text-teal-50 mb-6">
+                    Nearby Farmers
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      {
+                        name: "Green Acres Farm",
+                        location: "Ruralia, 5.2 km away",
+                        products: "Organic Vegetables, Fruits",
+                        image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=400&auto=format&fit=crop"
+                      },
+                      {
+                        name: "Heritage Family Farms",
+                        location: "Agraria, 7.1 km away",
+                        products: "Free-Range Eggs, Dairy",
+                        image: "https://images.unsplash.com/photo-1526318472351-c75fcf070305?w=400&auto=format&fit=crop"
+                      },
+                      {
+                        name: "Sunset Valley Organics",
+                        location: "Greendale, 3.8 km away",
+                        products: "Organic Produce, Honey",
+                        image: "https://images.unsplash.com/photo-1500076656116-558758c991c1?w=400&auto=format&fit=crop"
+                      }
+                    ].map((farmer, index) => (
+                      <div 
+                        key={index}
+                        className="p-4 rounded-lg bg-white/5 border border-green-200/10 dark:border-teal-800/10 flex items-center space-x-4"
+                      >
+                        <div className="h-16 w-16 rounded-full overflow-hidden flex-shrink-0">
+                          <img src={farmer.image} alt={farmer.name} className="h-full w-full object-cover" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-green-900 dark:text-teal-50">{farmer.name}</h3>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center mt-1">
+                            <FiMapPin className="w-3 h-3 mr-1" />
+                            {farmer.location}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center mt-1">
+                            <FiBox className="w-3 h-3 mr-1" />
+                            {farmer.products}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 text-center">
+                    <button 
+                      onClick={() => navigate('/verified-farmers')}
+                      className="inline-flex items-center px-4 py-2 border border-green-200/20 dark:border-teal-800/20 rounded-md text-sm font-medium text-green-900 dark:text-teal-50 hover:bg-white/10 transition-colors"
+                    >
+                      View All Farmers
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </>
+          ) : (
+            <Outlet />
+          )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };

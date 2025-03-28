@@ -1,29 +1,70 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-const ProductSchema = new mongoose.Schema(
-  {
-    farmer_id: { type: String, required: true }, // PostgreSQL Farmer ID
-    farmer_mobile: { type: String, required: false },
-    farmer_location: { type: String, required: false },
-    
-    name: { type: String, required: true },
-    description: { type: String, required: true },
-    category: { type: String, required: true },
-    price: { type: Number, required: true },
-    available_quantity: { type: Number, default: 0 },
-    image_url: { type: String, default: "" }, // Product image URL
-
-    qr_code: { type: String, default: "" }, // Blockchain verification hash
-
-    traceability: {
-      farm_location: String,
-      harvest_date: Date,
-      harvest_method: String, // e.g., Organic, Hydroponic
-      certified_by: String, // Certification authority
-    },
+const productSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Product name is required'],
+    trim: true
   },
-  { timestamps: true } // Automatically adds `createdAt` & `updatedAt`
-);
+  category: {
+    type: String,
+    required: [true, 'Category is required'],
+    trim: true
+  },
+  description: {
+    type: String,
+    required: [true, 'Product description is required'],
+    trim: true
+  },
+  price: {
+    type: Number,
+    required: [true, 'Price is required'],
+    min: 0
+  },
+  discount: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  available_quantity: {
+    type: Number,
+    required: [true, 'Available quantity is required'],
+    min: 0
+  },
+  unit: {
+    type: String,
+    default: 'kg',
+    enum: ['kg', 'g', 'lb', 'pieces', 'bunches', 'liters', 'ml', 'units']
+  },
+  image_url: {
+    type: String,
+    default: ''
+  },
+  image_id: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+  traceability: {
+    harvest_method: {
+      type: String,
+      default: 'Organic'
+    },
+    harvest_date: {
+      type: Date,
+      get: function(date) {
+        return date ? date.toISOString().split('T')[0] : null;
+      }
+    }
+  },
+  farmer_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
+}, {
+  timestamps: true,
+  toJSON: { getters: true }
+});
 
-const Product = mongoose.model("Product", ProductSchema);
+const Product = mongoose.model('Product', productSchema);
 export default Product;

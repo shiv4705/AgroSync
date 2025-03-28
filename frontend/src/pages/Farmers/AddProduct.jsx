@@ -1,448 +1,447 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import Navbar from "../../components/Navbar";
-import {
-  Package,
-  Calendar,
-  MapPin,
-  Tag,
-  FileText,
-  Clock,
-  Shield,
-  Upload,
-} from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Upload, Loader2 } from 'lucide-react';
+import Navbar from '../../components/Navbar';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 function AddProduct() {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // State for farmer data
   const [farmer, setFarmer] = useState({
-    id: "",
-    mobile: "",
-    location: "",
+    id: '',
+    mobile: '',
+    location: '',
   });
+  
+  // State for product data matching the schema
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    category: "",
-    price: "",
-    available_quantity: "",
-    image_url: "",
-    farmer_id: "",
-    farmer_mobile: "",
-    farmer_location: "",
+    name: '',
+    category: '',
+    description: '',
+    price: '',
+    discount: 0,
+    available_quantity: '',
+    unit: 'kg',
+    image: null,
+    image_url: '',
+    farmer_id: '',
     traceability: {
-      farm_location: "",
-      harvest_date: "",
-      harvest_method: "",
-      certified_by: "",
-    },
+      harvest_method: 'Organic',
+      harvest_date: ''
+    }
   });
 
+  // Get user data from localStorage on component mount
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("user"));
-    // For Mongoose, the user id is usually stored as _id
-    console.log("User data:", userData.id);
+    const userData = JSON.parse(localStorage.getItem('user'));
     if (!userData || !userData.id) {
-      alert("Please login first");
-      navigate("/login");
+      toast.error('Please login first');
+      navigate('/login');
       return;
     }
 
     setFarmer({
-      id: userData.id, // use _id for mongoose
-      mobile: userData.mobile || "",
-      location: userData.location || "",
+      id: userData.id,
+      mobile: userData.mobile || '',
+      location: userData.location || '',
     });
 
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      farmer_id: userData.id, // use _id
-      farmer_mobile: userData.mobile || "",
-      farmer_location: userData.location || "",
+      farmer_id: userData.id
     }));
   }, [navigate]);
 
-  const categories = [
-    "Vegetables",
-    "Fruits",
-    "Grains",
-    "Dairy",
-    "Meat",
-    "Poultry",
-    "Spices",
-    "Other",
-  ];
-
-  const harvestMethods = [
-    "Organic",
-    "Conventional",
-    "Hydroponic",
-    "Aquaponic",
-    "Biodynamic",
-  ];
-
+  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name.includes("traceability.")) {
-      const field = name.split(".")[1];
-      setFormData((prev) => ({
+    
+    if (name.startsWith('traceability.')) {
+      const field = name.split('.')[1];
+      setFormData(prev => ({
         ...prev,
         traceability: {
           ...prev.traceability,
-          [field]: value,
-        },
+          [field]: value
+        }
       }));
     } else {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
-        [name]: value,
+        [name]: value
       }));
     }
   };
 
+  // Handle image upload
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Create a preview URL for the image
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size must be less than 5MB');
+        return;
+      }
+
+      // Create preview URL
       const imageUrl = URL.createObjectURL(file);
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
-        image: file, // store the actual file
-        image_url: imageUrl, // store the preview URL
+        image: file,
+        image_url: imageUrl
       }));
     }
   };
 
+  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setIsLoading(true);
 
     try {
+      // Validate required fields
+      if (!formData.name || !formData.category || !formData.description || 
+          !formData.price || !formData.available_quantity) {
+        throw new Error('Please fill all required fields');
+      }
+      
+      if (!formData.image) {
+        throw new Error('Please upload a product image');
+      }
+
       // Get authentication token
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       if (!token) {
-        alert("You must be logged in to add a product");
-        navigate("/login");
-        return;
+        throw new Error('You must be logged in to add a product');
       }
 
-      // Get user information
-      const userData = JSON.parse(localStorage.getItem("user"));
-
-      // Create a FormData object to handle file upload
+      // Create FormData object for multipart form data
       const submitFormData = new FormData();
+      submitFormData.append('name', formData.name);
+      submitFormData.append('category', formData.category);
+      submitFormData.append('description', formData.description);
+      submitFormData.append('price', formData.price);
+      submitFormData.append('discount', formData.discount);
+      submitFormData.append('available_quantity', formData.available_quantity);
+      submitFormData.append('unit', formData.unit);
+      submitFormData.append('farmer_id', farmer.id);
 
-      // Append basic product information
-      submitFormData.append("name", formData.name);
-      submitFormData.append("description", formData.description);
-      submitFormData.append("category", formData.category);
-      submitFormData.append("price", formData.price);
-      submitFormData.append("available_quantity", formData.available_quantity);
+      // Append traceability data as JSON string
+      submitFormData.append('traceability', JSON.stringify({
+        harvest_method: formData.traceability.harvest_method,
+        harvest_date: formData.traceability.harvest_date
+      }));
 
-      // Append farmer information using _id
-      submitFormData.append("farmer_id", userData?.id || formData.farmer_id);
-      submitFormData.append("farmer_mobile", userData?.mobile || formData.farmer_mobile);
-      submitFormData.append("farmer_location", userData?.location || formData.farmer_location);
+      // Append image
+      submitFormData.append('image', formData.image);
 
-      // Convert traceability object to JSON string
-      submitFormData.append(
-        "traceability",
-        JSON.stringify({
-          farm_location: formData.traceability.farm_location,
-          harvest_date: formData.traceability.harvest_date,
-          harvest_method: formData.traceability.harvest_method,
-          certified_by: formData.traceability.certified_by,
-        })
-      );
-
-      // Append image if available
-      if (formData.image) {
-        submitFormData.append("image", formData.image);
-      }
-
-      console.log("Submitting product data...");
-
-      // Make API call to add the product
-      const response = await fetch("http://localhost:5000/api/products/add-product", {
-        method: "POST",
+      // Make API request
+      const response = await fetch('http://localhost:5000/api/products/add-product', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`
         },
-        body: submitFormData,
+        body: submitFormData
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to add product");
+        throw new Error(errorData.message || 'Failed to add product');
       }
 
       const data = await response.json();
-      console.log("Product added successfully:", data);
-
-      alert("Product added successfully!");
-      navigate("/farmer/products");
+      console.log('Product added successfully:', data);
+      
+      toast.success('Product added successfully!');
+      navigate('/farmer/products');
     } catch (error) {
-      console.error("Error adding product:", error);
-      alert(`Error: ${error.message}`);
+      console.error('Error adding product:', error);
+      toast.error(error.message || 'An error occurred');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
+  // Option arrays
+  const categories = [
+    'Vegetables',
+    'Fruits',
+    'Dairy',
+    'Grains',
+    'Spices',
+    'Herbs',
+    'Other'
+  ];
+  
+  const harvestMethods = [
+    'Organic',
+    'Conventional',
+    'Hydroponic',
+    'Aquaponic',
+    'Other'
+  ];
+
+  const units = [
+    'kg',
+    'g',
+    'lb',
+    'pieces',
+    'bunches',
+    'liters',
+    'ml',
+    'units'
+  ];
+  
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0c1816] to-[#0b1f1a]">
+    <div className="min-h-screen bg-[#1a332e]">
       <Navbar />
-      <div className="pt-24 px-6">
+      <div className="pt-24 px-6 pb-12">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
+          {/* Back Button */}
+          <Link 
+            to="/farmer/products"
+            className="inline-flex items-center text-teal-400 hover:text-teal-300 mb-6 transition-colors"
           >
-            <h1 className="font-serif text-4xl font-bold tracking-tighter text-green-900 dark:text-teal-50 mb-4">
-              Add New Product
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Fill in the details below to add a new product to your inventory
-            </p>
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Back to Products
+          </Link>
+
+          {/* Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <h1 className="text-4xl font-bold text-white mb-2">Add New Product</h1>
+            <p className="text-gray-400">Add a new product to sell in the marketplace</p>
           </motion.div>
 
           {/* Form */}
-          <motion.form
+          <motion.form 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
             onSubmit={handleSubmit}
-            className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-green-200/20 dark:border-teal-800/20 space-y-6"
+            className="space-y-8"
           >
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-green-900 dark:text-teal-50 flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Basic Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Product Information Section */}
+            <div className="bg-[#2d4f47] rounded-xl p-6 border border-teal-500/20">
+              <h2 className="text-xl font-bold text-white mb-6">Product Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Product Name
-                  </label>
+                  <label className="block text-gray-300 mb-2">Product Name*</label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
                     placeholder="Enter product name"
+                    className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Category
-                  </label>
+                  <label className="block text-gray-300 mb-2">Category*</label>
                   <select
                     name="category"
                     value={formData.category}
                     onChange={handleInputChange}
+                    className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
                     required
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
                   >
                     <option value="">Select category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Price, discount and unit on same row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div>
+                  <label className="block text-gray-300 mb-2">Price (₹)*</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      className="w-full bg-[#1a332e] text-white pl-8 pr-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-2">Discount (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="discount"
+                      value={formData.discount}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                      className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                  </div>
+                  {formData.discount > 0 && formData.price && (
+                    <p className="text-xs text-teal-400 mt-1">
+                      Final price: ₹{(formData.price * (1 - formData.discount/100)).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-2">Unit*</label>
+                  <select
+                    name="unit"
+                    value={formData.unit}
+                    onChange={handleInputChange}
+                    className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
+                    required
+                  >
+                    {units.map(unit => (
+                      <option key={unit} value={unit}>
+                        {unit === 'kg' ? 'Kilogram (kg)' : 
+                         unit === 'g' ? 'Gram (g)' : 
+                         unit === 'lb' ? 'Pound (lb)' : 
+                         unit === 'ml' ? 'Milliliter (ml)' : 
+                         unit.charAt(0).toUpperCase() + unit.slice(1)}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
+
+              {/* Quantity field */}
+              <div className="mt-6">
+                <label className="block text-gray-300 mb-2">Available Quantity*</label>
+                <input
+                  type="number"
+                  name="available_quantity"
+                  value={formData.available_quantity}
                   onChange={handleInputChange}
+                  placeholder="Enter available quantity"
+                  min="0"
+                  className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
                   required
-                  rows={4}
-                  className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                  placeholder="Describe your product"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  Enter the total quantity available for sale, in the selected unit.
+                </p>
               </div>
             </div>
 
-            {/* Pricing and Quantity */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-green-900 dark:text-teal-50 flex items-center gap-2">
-                <Tag className="w-5 h-5" />
-                Pricing and Quantity
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    required
-                    min="0"
-                    step="0.01"
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                    placeholder="Enter price"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Available Quantity
-                  </label>
-                  <input
-                    type="number"
-                    name="available_quantity"
-                    value={formData.available_quantity}
-                    onChange={handleInputChange}
-                    required
-                    min="0"
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                    placeholder="Enter quantity"
-                  />
-                </div>
-              </div>
+            {/* Product Description Section */}
+            <div className="bg-[#2d4f47] rounded-xl p-6 border border-teal-500/20">
+              <h2 className="text-xl font-bold text-white mb-6">Product Description*</h2>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Describe your product..."
+                rows="4"
+                className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
+                required
+              />
             </div>
-
-            {/* Traceability Information */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-green-900 dark:text-teal-50 flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Traceability Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Traceability Section */}
+            <div className="bg-[#2d4f47] rounded-xl p-6 border border-teal-500/20">
+              <h2 className="text-xl font-bold text-white mb-6">Product Traceability</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Farm Location
-                  </label>
-                  <input
-                    type="text"
-                    name="traceability.farm_location"
-                    value={formData.traceability.farm_location}
+                  <label className="block text-gray-300 mb-2">Harvest Method</label>
+                  <select
+                    name="traceability.harvest_method"
+                    value={formData.traceability.harvest_method}
                     onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                    placeholder="Enter farm location"
-                  />
+                    className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
+                  >
+                    {harvestMethods.map(method => (
+                      <option key={method} value={method}>{method}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Harvest Date
-                  </label>
+                  <label className="block text-gray-300 mb-2">Harvest Date</label>
                   <input
                     type="date"
                     name="traceability.harvest_date"
                     value={formData.traceability.harvest_date}
                     onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Harvest Method
-                  </label>
-                  <select
-                    name="traceability.harvest_method"
-                    value={formData.traceability.harvest_method}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                  >
-                    <option value="">Select method</option>
-                    {harvestMethods.map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-600 dark:text-gray-300 mb-2">
-                    Certified By
-                  </label>
-                  <input
-                    type="text"
-                    name="traceability.certified_by"
-                    value={formData.traceability.certified_by}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-green-200/20 dark:border-teal-800/20 text-gray-900 dark:text-teal-50 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-teal-500"
-                    placeholder="Enter certification authority"
+                    className="w-full bg-[#1a332e] text-white px-4 py-2.5 rounded-lg border border-teal-500/20 focus:outline-none focus:border-teal-500"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Image Upload */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-green-900 dark:text-teal-50 flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                Product Image
-              </h2>
-              <div className="flex items-center justify-center w-full">
-                <label className="w-full flex flex-col items-center justify-center px-4 py-6 bg-white/5 text-gray-600 dark:text-gray-300 rounded-lg border-2 border-dashed border-green-200/20 dark:border-teal-800/20 cursor-pointer hover:border-green-300/30 dark:hover:border-teal-700/30">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-4 text-green-600 dark:text-teal-400" />
-                    <p className="mb-2 text-sm">
-                      <span className="font-semibold">Click to upload</span> or drag and drop
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      PNG, JPG or JPEG (MAX. 800x400px)
-                    </p>
-                  </div>
+            {/* Product Image Section */}
+            <div className="bg-[#2d4f47] rounded-xl p-6 border border-teal-500/20">
+              <h2 className="text-xl font-bold text-white mb-6">Product Image*</h2>
+              <div className="border-2 border-dashed border-teal-500/20 rounded-xl p-8">
+                <div className="text-center">
+                  {formData.image_url ? (
+                    <div className="mb-4">
+                      <img
+                        src={formData.image_url}
+                        alt="Product preview"
+                        className="mx-auto max-h-64 rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <Upload className="w-12 h-12 text-teal-400 mx-auto mb-4" />
+                  )}
+                  <p className="text-white mb-2">Upload main product image</p>
+                  <p className="text-gray-400 text-sm mb-4">Drag and drop or click to upload (max 5MB)</p>
                   <input
                     type="file"
-                    name="image"
+                    accept="image/*"
                     onChange={handleImageUpload}
                     className="hidden"
-                    accept="image/*"
+                    id="image-upload"
                   />
-                </label>
-              </div>
-              {formData.image_url && (
-                <div className="mt-4">
-                  <img
-                    src={formData.image_url}
-                    alt="Product preview"
-                    className="w-full max-w-md mx-auto rounded-lg"
-                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="inline-block bg-teal-500/20 text-teal-400 px-4 py-2 rounded-lg cursor-pointer hover:bg-teal-500/30 transition-colors"
+                  >
+                    Select File
+                  </label>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end gap-4 pt-6">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => navigate("/farmer/products")}
-                className="bg-red-500 backdrop-blur-sm text-white dark:text-white px-8 py-3 rounded-lg flex items-center space-x-2 hover:bg-red-600/80 border border-green-200/20 dark:border-teal-800/20 transition-colors"
+            <div className="flex justify-end gap-4">
+              <Link
+                to="/farmer/products"
+                className="px-6 py-2.5 rounded-lg bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors"
               >
-                <span>Cancel</span>
-              </motion.button>
+                Cancel
+              </Link>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                disabled={isSubmitting}
                 type="submit"
-                className={`bg-green-600 dark:bg-teal-500 text-white px-8 py-3 rounded-lg flex items-center space-x-2 hover:bg-green-700 dark:hover:bg-teal-600 transition-colors ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                disabled={isLoading}
+                className="bg-teal-500 text-white px-8 py-3 rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
               >
-                <Package className="w-5 h-5" />
-                <span>{isSubmitting ? "Adding Product..." : "Add Product"}</span>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Add Product'
+                )}
               </motion.button>
             </div>
           </motion.form>
