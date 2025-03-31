@@ -1,4 +1,4 @@
-# Direct Market Access for Farmers
+# AgroSync- Direct Market Access for Farmers
 
 ## Project Overview
 Farmers often face challenges in accessing markets, leading to reduced income due to middlemen. This web application eliminates intermediaries by connecting farmers directly with consumers and retailers, allowing them to list produce, negotiate prices, and manage transactions efficiently.
